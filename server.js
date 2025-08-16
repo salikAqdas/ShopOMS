@@ -30,7 +30,7 @@ const app = express();
 app.use(express.json()); // Parse JSON bodies
 app.use(express.static(path.join(__dirname, 'public'))); // Serve static files
 app.use(cors()); // This allows all origins for development
-
+app.use(express.static('public'));
 // ------------------------------------------
 // ROUTES
 // ------------------------------------------
