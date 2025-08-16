@@ -1,0 +1,47 @@
+:root {
+  --red: #d32f2f;
+  --light-red: #ffebee;
+}
+
+.text-red {
+  color: var(--red);
+}
+
+.bg-red {
+  background-color: var(--red);
+  color: white;
+}
+
+.btn-red {
+  background-color: var(--red);
+  color: white;
+  border: 1px solid var(--red);
+}
+
+.btn-red:hover {
+  background-color: #b71c1c;
+  color: white;
+}
+
+.btn-outline-red {
+  color: var(--red);
+  border-color: var(--red);
+}
+
+.btn-outline-red:hover {
+  background-color: var(--red);
+  color: white;
+}
+
+.border-red {
+  border-color: var(--red) !important;
+}
+
+.nav-link.active {
+  font-weight: 600;
+  color: var(--red) !important;
+}
+
+.nav-link:hover {
+  color: var(--red) !important;
+}

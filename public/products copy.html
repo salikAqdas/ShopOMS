@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Products - Shop OMS</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body class="bg-white">
+  <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom border-red">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">
+        <img src="/images/logo.png" alt="Shop Logo" class="d-inline-block align-text-top" style="max-height: 40px;">
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav me-auto">
+          <li class="nav-item">
+            <a class="nav-link" href="/orders.html">Orders</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active text-red" aria-current="page" href="/products.html">Products</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/reports.html">Reports</a>
+          </li>
+        </ul>
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <button id="logoutButton" class="btn btn-outline-red">Logout</button>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2 class="text-red">Products</h2>
+      <button class="btn btn-red" data-bs-toggle="modal" data-bs-target="#addProductModal">+ Add Product</button>
+    </div>
+    <div class="input-group mb-3">
+      <input type="text" class="form-control" placeholder="Search products..." id="productSearch">
+      <button class="btn btn-outline-red" type="button" id="searchBtn">Search</button>
+    </div>
+    <table class="table table-hover">
+      <thead class="table-light">
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Category</th>
+          <th>Price</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="productList">
+        <!-- Product rows added by JavaScript -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Add/Edit Product Modal -->
+  <div class="modal fade" id="addProductModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="productModalTitle">Add Product</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Name</label>
+            <input type="text" class="form-control" id="productName">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Category</label>
+            <input type="text" class="form-control" id="productCategory">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Price (₹)</label>
+            <input type="number" class="form-control" id="productPrice" min="0" step="1">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-red" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-red" id="saveProductBtn">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Highlight current page
+    document.querySelectorAll('.nav-link').forEach(link => {
+      if (link.href === window.location.href) {
+        link.classList.add('active');
+      }
+    });
+
+    // Logout
+    document.getElementById('logoutButton').addEventListener('click', () => {
+      localStorage.removeItem('token');
+      window.location.href = '/';
+    });
+
+    // Check login
+    if (!localStorage.getItem('token')) {
+      window.location.href = '/';
+    }
+
+    // Sample product data (replace with fetch from backend later)
+    let products = [
+      { id: 1, name: 'Product 1', category: 'Category A', price: 199 },
+      { id: 2, name: 'Product 2', category: 'Category B', price: 299 },
+      { id: 3, name: 'Product 3', category: 'Category C', price: 99 }
+    ];
+
+    const productList = document.getElementById('productList');
+    const addProductBtn = document.querySelector('[data-bs-target="#addProductModal"]');
+    const saveProductBtn = document.getElementById('saveProductBtn');
+    const modal = new bootstrap.Modal(document.getElementById('addProductModal'));
+    const modalTitle = document.getElementById('productModalTitle');
+    const productName = document.getElementById('productName');
+    const productCategory = document.getElementById('productCategory');
+    const productPrice = document.getElementById('productPrice');
+    const productSearch = document.getElementById('productSearch');
+    let editingId = null;
+
+    // Render products table
+    function renderProducts(filter = '') {
+      productList.innerHTML = '';
+      const filtered = products.filter(p => 
+        p.name.toLowerCase().includes(filter.toLowerCase()) ||
+        p.category.toLowerCase().includes(filter.toLowerCase())
+      );
+      filtered.forEach(product => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${product.id}</td>
+          <td>${product.name}</td>
+          <td>${product.category}</td>
+          <td>₹${product.price}</td>
+          <td>
+            <button class="btn btn-sm btn-outline-primary mx-1 edit-btn" data-id="${product.id}">Edit</button>
+            <button class="btn btn-sm btn-outline-danger mx-1 delete-btn" data-id="${product.id}">Delete</button>
+          </td>
+        `;
+        productList.appendChild(row);
+      });
+    }
+    renderProducts();
+
+    // Search products
+    productSearch.addEventListener('input', () => renderProducts(productSearch.value));
+
+    // Add/Edit Product
+    function openAddModal(id = null) {
+      editingId = id;
+      if (id !== null) {
+        const product = products.find(p => p.id === id);
+        productName.value = product.name;
+        productCategory.value = product.category;
+        productPrice.value = product.price;
+        modalTitle.textContent = 'Edit Product';
+      } else {
+        productName.value = '';
+        productCategory.value = '';
+        productPrice.value = '';
+        modalTitle.textContent = 'Add Product';
+      }
+      modal.show();
+    }
+
+    saveProductBtn.addEventListener('click', () => {
+      const name = productName.value.trim();
+      const category = productCategory.value.trim();
+      const price = parseFloat(productPrice.value);
+      if (!name || !category || isNaN(price)) {
+        alert('Please fill all fields correctly.');
+        return;
+      }
+      if (editingId === null) {
+        // Add new product
+        const newId = products.length > 0 ? Math.max(...products.map(p => p.id)) + 1 : 1;
+        products.push({ id: newId, name, category, price });
+      } else {
+        // Update existing
+        const index = products.findIndex(p => p.id === editingId);
+        if (index !== -1) {
+          products[index] = { id: editingId, name, category, price };
+        }
+      }
+      renderProducts();
+      modal.hide();
+    });
+
+    // Edit Product
+    productList.addEventListener('click', e => {
+      if (e.target.classList.contains('edit-btn')) {
+        openAddModal(parseInt(e.target.dataset.id));
+      } else if (e.target.classList.contains('delete-btn')) {
+        const id = parseInt(e.target.dataset.id);
+        if (confirm('Delete this product?')) {
+          products = products.filter(p => p.id !== id);
+          renderProducts();
+        }
+      }
+    });
+
+    // Show modal on "Add Product" click
+    addProductBtn.addEventListener('click', () => openAddModal(null));
+  </script>
+</body>
+</html>

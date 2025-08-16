@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reports - Shop OMS</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body class="bg-white">
+  <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom border-red">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">
+        <img src="/images/logo.png" alt="Shop Logo" class="d-inline-block align-text-top" style="max-height: 40px;">
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav me-auto">
+          <li class="nav-item">
+            <a class="nav-link" href="/orders.html">Orders</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/products.html">Products</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active text-red" aria-current="page" href="/reports.html">Reports</a>
+          </li>
+        </ul>
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <button id="logoutButton" class="btn btn-outline-red">Logout</button>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container mt-4">
+    <h2 class="text-red mb-4">Sales Reports</h2>
+    <div class="row mb-4">
+      <div class="col-md-6">
+        <div class="card border-red mb-3">
+          <div class="card-header bg-red text-white" >Today’s Sales</div>
+          <div class="card-body">
+            <h4 class="card-title text-red" id="todaysSalesTitle">₹0.00</h4>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card border-red mb-3">
+          <div class="card-header bg-red text-white">This Month</div>
+          <div class="card-body">
+            <h4 class="card-title text-red"  id="monthsSalesTitle">₹0.00</h4>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card border-red mb-4">
+      <div class="card-header bg-red text-white">Top Products</div>
+      <div class="card-body">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Sales</th>
+            </tr>
+          </thead>
+          <tbody id="topProducts">
+            <!-- Top products will be added here -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+ <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // Highlight current page
+  document.querySelectorAll('.nav-link').forEach(link => {
+    if (link.href === window.location.href) {
+      link.classList.add('active');
+    }
+  });
+
+  // Logout
+  document.getElementById('logoutButton').addEventListener('click', () => {
+    localStorage.removeItem('token');
+    window.location.href = '/';
+  });
+
+  // Check login
+  if (!localStorage.getItem('token')) {
+    window.location.href = '/';
+  }
+
+  // Fetch and render all reports
+  async function loadReports() {
+    // const reportTodayEl = document.querySelector('.card.border-red:nth-child(1) .card-title');
+    // const reportMonthEl = document.querySelector('.card.border-red:nth-child(2) .card-title');
+    // const topProductsEl = document.getElementById('topProducts');
+    const reportTodayEl = document.getElementById('todaysSalesTitle');
+    const reportMonthEl = document.getElementById('monthsSalesTitle'); 
+    const topProductsEl = document.getElementById('topProducts');
+    
+
+    // Default loading state
+    reportTodayEl.textContent = 'Loading…';
+    reportMonthEl.textContent = 'Loading…';
+    topProductsEl.innerHTML = '<tr><td colspan="2" class="text-center">Loading…</td></tr>';
+
+    try {
+      // Fetch today's sales
+      const todayResponse = await fetch('/api/reports/today', {
+        headers: {
+          'Authorization': 'Bearer ' + localStorage.getItem('token')
+        }
+      });
+      const today = await todayResponse.json();
+      reportTodayEl.textContent = today.error ? 'Error' : `₹${today.total.toFixed(2)}`;
+
+      // Fetch this month's sales
+      const monthResponse = await fetch('/api/reports/month', {
+        headers: {
+          'Authorization': 'Bearer ' + localStorage.getItem('token')
+        }
+      });
+      const month = await monthResponse.json();
+      reportMonthEl.textContent = month.error ? 'Error' : `₹${month.total.toFixed(2)}`;
+
+      // Fetch top products
+      const topProductsResponse = await fetch('/api/reports/top-products', {
+        headers: {
+          'Authorization': 'Bearer ' + localStorage.getItem('token')
+        }
+      });
+      const topProducts = await topProductsResponse.json();
+      if (topProducts.error) {
+        topProductsEl.innerHTML = '<tr><td class="text-danger" colspan="2">Failed to load</td></tr>';
+      } else if (topProducts.length === 0) {
+        topProductsEl.innerHTML = '<tr><td colspan="2" class="text-center">No products sold yet</td></tr>';
+      } else {
+        topProductsEl.innerHTML = '';
+        topProducts.forEach(product => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${product.name}</td>
+            <td>${product.sales}</td>
+          `;
+          topProductsEl.appendChild(tr);
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load reports:', err);
+      reportTodayEl.textContent = 'Error';
+      reportMonthEl.textContent = 'Error';
+      topProductsEl.innerHTML = '<tr><td class="text-danger" colspan="2">Failed to load</td></tr>';
+    }
+  }
+
+  // Initial load
+  loadReports();
+</script>
+
+</body>
+</html>

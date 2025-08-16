@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orders - Shop OMS</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    /* Wider side panel for better order entry */
+    .offcanvas { width: 550px; max-width: 90vw; }
+    @media (max-width: 576px) { .offcanvas { width: 90vw; } }
+    /* Inline add row styling */
+    #inlineProductSelect { max-width: 200px; }
+    #inlineProductQty, #inlineAddBtn { width: 90px; }
+  </style>
+</head>
+<body class="bg-white">
+  <!-- Navigation Bar -->
+  <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom border-red">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">
+        <img src="/images/logo.png" alt="Shop Logo" class="d-inline-block align-text-top" style="max-height: 40px;">
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav me-auto">
+          <li class="nav-item">
+            <a class="nav-link active text-red" aria-current="page" href="/orders.html">Orders</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/products.html">Products</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/reports.html">Reports</a>
+          </li>
+        </ul>
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <button id="logoutButton" class="btn btn-outline-red">Logout</button>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Orders Overview Table -->
+  <div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2 class="text-red">Orders Overview</h2>
+      <button class="btn btn-red" id="newOrderBtn">New Order</button>
+    </div>
+    <table class="table table-hover">
+      <thead class="table-light">
+        <tr>
+          <th>Date</th>
+          <th>Order #</th>
+          <th>Customer</th>
+          <th>Total</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="ordersList">
+        <!-- Orders will be loaded here -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- New Order Side Panel (wide!) -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="newOrderPanel" aria-labelledby="newOrderPanelLabel">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title" id="newOrderPanelLabel">New Order</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+      <!-- Customer -->
+      <div class="mb-3">
+        <label class="form-label">Customer Name</label>
+        <input type="text" class="form-control" id="customerName">
+      </div>
+      <!-- Order Items Table -->
+      <table class="table table-sm mb-3" id="newOrderItems">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Price</th>
+            <th>Qty</th>
+            <th>Total</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="newOrderItemsBody"></tbody>
+      </table>
+      <!-- Inline Add Product Row -->
+      <div class="d-flex gap-2 mb-3">
+        <select class="form-select flex-grow-1" id="inlineProductSelect">
+          <option value="">Select product</option>
+          <!-- Products filled by JavaScript -->
+        </select>
+        <input type="number" min="1" value="1" class="form-control" id="inlineProductQty">
+        <button class="btn btn-outline-red" id="inlineAddBtn">Add</button>
+      </div>
+      <!-- Order Summary -->
+      <div class="card p-3 bg-light mb-3">
+        <h6 class="text-red">Order Summary</h6>
+        <div class="d-flex justify-content-between">
+          <span>Subtotal:</span>
+          <span id="newOrderSubtotal">₹0.00</span>
+        </div>
+        <div class="d-flex justify-content-between">
+          <span>Tax (10%):</span>
+          <span id="newOrderTax">₹0.00</span>
+        </div>
+        <div class="d-flex justify-content-between fw-bold">
+          <span>Total:</span>
+          <span id="newOrderTotal">₹0.00</span>
+        </div>
+      </div>
+      <!-- Action Buttons -->
+      <button class="btn btn-red w-100 my-2" id="saveOrderBtn">Save Order</button>
+      <button class="btn btn-outline-red w-100" id="printOrderBtn" disabled>Print Invoice</button>
+    </div>
+  </div>
+
+  <!-- Bootstrap & JS -->
+  <!-- <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script> -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // Highlight current page
+  document.querySelectorAll('.nav-link').forEach(link => {
+    if (link.href === window.location.href) {
+      link.classList.add('active');
+    }
+  });
+
+  // Logout
+  document.getElementById('logoutButton').addEventListener('click', () => {
+    localStorage.removeItem('token');
+    window.location.href = '/';
+  });
+
+  // Check login
+  if (!localStorage.getItem('token')) {
+    window.location.href = '/';
+  }
+
+  // --- State ---
+  let products = []; // Loaded from /api/products
+  let orders = [];   // Loaded from /api/orders
+  let currentNewOrderItems = [];
+
+  // --- DOM Elements ---
+  const ordersList = document.getElementById('ordersList');
+  const newOrderItemsBody = document.getElementById('newOrderItemsBody');
+  const newOrderSubtotalEl = document.getElementById('newOrderSubtotal');
+  const newOrderTaxEl = document.getElementById('newOrderTax');
+  const newOrderTotalEl = document.getElementById('newOrderTotal');
+  const customerNameEl = document.getElementById('customerName');
+  const inlineProductSelect = document.getElementById('inlineProductSelect');
+  const inlineProductQty = document.getElementById('inlineProductQty');
+  const printOrderBtn = document.getElementById('printOrderBtn');
+  const saveOrderBtn = document.getElementById('saveOrderBtn');
+  const newOrderBtn = document.getElementById('newOrderBtn');
+
+  // --- Function: Fetch Products ---
+  async function fetchProducts() {
+    try {
+      const response = await fetch('/api/products');
+      const data = await response.json();
+      products = data;
+    } catch (err) {
+      console.error('Failed to fetch products:', err);
+    }
+  }
+
+  // --- Function: Fetch Orders ---
+  async function fetchOrders() {
+    try {
+      const response = await fetch('/api/orders');
+      const data = await response.json();
+      orders = data;
+      renderOrdersOverview();
+    } catch (err) {
+      console.error('Failed to fetch orders:', err);
+    }
+  }
+
+  // --- Function: Render Orders Overview ---
+  function renderOrdersOverview() {
+    ordersList.innerHTML = '';
+    orders.forEach(order => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${new Date(order.createdAt).toLocaleString()}</td>
+        <td>#${order._id}</td>
+        <td>${order.customerName || '-'}</td>
+        <td>₹${order.total.toFixed(2)}</td>
+        <td>${order.status || 'Pending'}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-primary" onclick="viewOrder('${order._id}')">View</button>
+        </td>
+      `;
+      ordersList.appendChild(row);
+    });
+  }
+
+  // --- Function: Fill Product Select ---
+  function fillInlineProductSelect() {
+    inlineProductSelect.innerHTML = '<option value="">Select product</option>';
+    products.forEach(p => {
+      const option = document.createElement('option');
+      option.value = p._id;
+      option.textContent = `${p.name} (₹${p.price})`;
+      inlineProductSelect.appendChild(option);
+    });
+  }
+
+  // --- Function: Render New Order Items Table ---
+  function renderNewOrderItems() {
+    newOrderItemsBody.innerHTML = '';
+    let subtotal = 0;
+    currentNewOrderItems.forEach(item => {
+      const product = products.find(p => p._id === item.productId);
+      if (!product) return;
+      const total = product.price * item.quantity;
+      subtotal += total;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${product.name}</td>
+        <td>₹${product.price}</td>
+        <td><input type="number" min="1" value="${item.quantity}" class="form-control qty-input" data-id="${item.productId}"></td>
+        <td>₹${total}</td>
+        <td><button class="btn btn-sm btn-outline-danger remove-btn" data-id="${item.productId}">×</button></td>
+      `;
+      newOrderItemsBody.appendChild(tr);
+    });
+    const tax = subtotal * 0.1;
+    newOrderSubtotalEl.textContent = `₹${subtotal.toFixed(2)}`;
+    newOrderTaxEl.textContent = `₹${tax.toFixed(2)}`;
+    newOrderTotalEl.textContent = `₹${(subtotal + tax).toFixed(2)}`;
+    printOrderBtn.disabled = currentNewOrderItems.length === 0;
+  }
+
+  // --- Function: Generate Printable Invoice ---
+  function getPrintableInvoice(customerName, items) {
+    let invoiceDate = new Date().toLocaleString();
+    let productsHtml = '';
+    let subtotal = 0;
+    items.forEach(item => {
+      const product = products.find(p => p._id === item.productId);
+      const total = product.price * item.quantity;
+      subtotal += total;
+      productsHtml += `
+        <tr>
+          <td>${product.name}</td>
+          <td>₹${product.price}</td>
+          <td>${item.quantity}</td>
+          <td>₹${total.toFixed(2)}</td>
+        </tr>
+      `;
+    });
+    const tax = subtotal * 0.1;
+    const fullTotal = subtotal + tax;
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Invoice</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .invoice-header { text-align: center; margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background-color: #f2f2f2; }
+    .summary { float: right; text-align: right; margin-top: 20px; }
+    .total { font-weight: bold; }
+    .order-details { margin-top: 30px; }
+    .text-red { color: #d32f2f; }
+  </style>
+</head>
+<body>
+  <div class="invoice-header">
+    <h2 class="text-red">Invoice</h2>
+    <p>${invoiceDate}</p>
+    <p>${customerName || '(No customer name)'}</p>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th>Price</th>
+        <th>Qty</th>
+        <th>Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${productsHtml}
+      <tr>
+        <td colspan="3" style="text-align: right; font-weight: bold;">Subtotal</td>
+        <td>₹${subtotal.toFixed(2)}</td>
+      </tr>
+      <tr>
+        <td colspan="3" style="text-align: right; font-weight: bold;">Tax (10%)</td>
+        <td>₹${tax.toFixed(2)}</td>
+      </tr>
+      <tr class="total">
+        <td colspan="3" style="text-align: right; font-weight: bold;">Total</td>
+        <td class="text-red">₹${fullTotal.toFixed(2)}</td>
+      </tr>
+    </tbody>
+  </table>
+  <hr>
+  <p class="order-details">Thank you for your order!</p>
+</body>
+</html>
+    `;
+  }
+
+  // --- Event Handlers ---
+
+  // Open new order side panel
+  newOrderBtn.addEventListener('click', () => {
+    // currentNewOrderItems = [];
+    // customerNameEl.value = '';
+    // fillInlineProductSelect();
+    // renderNewOrderItems();
+    // bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('newOrderPanel')).show();
+    // Clear the order items and customer name
+  currentNewOrderItems = [];
+  customerNameEl.value = '';
+  // Reload product dropdown
+  fillInlineProductSelect();
+  // Re-render empty order items table
+  renderNewOrderItems();
+  // Open the side panel
+  const offcanvasInstance = new bootstrap.Offcanvas(document.getElementById('newOrderPanel'));
+  offcanvasInstance.show();
+  });
+
+  // Add product inline
+  document.getElementById('inlineAddBtn').addEventListener('click', () => {
+    const productId = inlineProductSelect.value;
+    if (!productId) return alert('Please select a product.');
+    const quantity = parseInt(inlineProductQty.value) || 1;
+    const existing = currentNewOrderItems.find(i => i.productId === productId);
+    if (existing) {
+      existing.quantity += quantity;
+    } else {
+      currentNewOrderItems.push({ productId, quantity });
+    }
+    renderNewOrderItems();
+    inlineProductSelect.value = '';
+    inlineProductQty.value = 1;
+  });
+
+  // Handle quantity changes
+  newOrderItemsBody.addEventListener('change', e => {
+    if (e.target.classList.contains('qty-input')) {
+      const productId = e.target.dataset.id;
+      const item = currentNewOrderItems.find(i => i.productId === productId);
+      if (item) {
+        item.quantity = parseInt(e.target.value);
+        renderNewOrderItems();
+      }
+    }
+  });
+
+  // Handle removal
+  newOrderItemsBody.addEventListener('click', e => {
+    if (e.target.classList.contains('remove-btn')) {
+      currentNewOrderItems = currentNewOrderItems.filter(i => i.productId !== e.target.dataset.id);
+      renderNewOrderItems();
+    }
+  });
+
+  // Save order
+  saveOrderBtn.addEventListener('click', async () => {
+    const customerName = customerNameEl.value.trim();
+    if (currentNewOrderItems.length === 0) {
+      alert('Please add at least one product.');
+      return;
+    }
+    const subtotal = currentNewOrderItems.reduce((sum, item) => {
+      const product = products.find(p => p._id === item.productId);
+      return sum + product.price * item.quantity;
+    }, 0);
+    const tax = subtotal * 0.1;
+    const total = subtotal + tax;
+    const newOrder = {
+      customerName,
+      items: currentNewOrderItems.map(item => ({
+        product: item.productId,
+        quantity: item.quantity
+      })),
+      subtotal,
+      tax,
+      total,
+      status: 'Open'
+    };
+    try {
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + localStorage.getItem('token')
+        },
+        body: JSON.stringify(newOrder)
+      });
+      const data = await response.json();
+      if (data.success) {
+        alert('Order saved!');
+        currentNewOrderItems = [];
+        customerNameEl.value = '';
+        fillInlineProductSelect();
+        renderNewOrderItems();
+        bootstrap.Offcanvas.getInstance(document.getElementById('newOrderPanel')).hide();
+        await fetchOrders(); // Refresh orders list
+      } else {
+        alert('Failed to save order: ' + (data.error || 'Unknown error'));
+      }
+    } catch (err) {
+      console.error('Failed to save order:', err);
+      alert('Network error. Try again.');
+    }
+  });
+
+  // Print invoice
+  printOrderBtn.addEventListener('click', () => {
+    const customerName = customerNameEl.value.trim();
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(getPrintableInvoice(customerName, currentNewOrderItems));
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  });
+
+  // For demo: view existing order
+  window.viewOrder = async (orderId) => {
+    try {
+      const response = await fetch(`/api/orders/${orderId}`);
+      const order = await response.json();
+      if (!order) return;
+      currentNewOrderItems = order.items.map(item => ({
+        productId: item.product._id,
+        quantity: item.quantity
+      }));
+      customerNameEl.value = order.customerName;
+      fillInlineProductSelect();
+      renderNewOrderItems();
+      bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('newOrderPanel')).show();
+    } catch (err) {
+      console.error('Failed to fetch order:', err);
+    }
+  };
+
+  // Initial load
+  fetchProducts();
+  fetchOrders();
+</script>
+
+</body>
+</html>
